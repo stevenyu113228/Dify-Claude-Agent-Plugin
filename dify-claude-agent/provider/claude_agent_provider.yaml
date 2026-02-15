@@ -1,0 +1,41 @@
+identity:
+  author: steven
+  name: claude_agent_provider
+  label:
+    en_US: Claude Agent
+    zh_Hans: Claude Agent
+  description:
+    en_US: Run autonomous Claude Agents powered by Anthropic's Claude Agent SDK
+    zh_Hans: 使用 Anthropic 的 Claude Agent SDK 運行自主 Claude Agent
+  icon: icon.svg
+  tags:
+    - utilities
+credentials_for_provider:
+  anthropic_api_key:
+    type: secret-input
+    required: false
+    label:
+      en_US: Anthropic API Key
+      zh_Hans: Anthropic API Key
+    placeholder:
+      en_US: "sk-ant-..."
+    help:
+      en_US: "Your Anthropic API key. Get one at https://console.anthropic.com/. Either this or OAuth token is required."
+      zh_Hans: "您的 Anthropic API Key。至少需要提供 API Key 或 OAuth Token 其中之一。"
+    url: https://console.anthropic.com/
+  claude_code_oauth_token:
+    type: secret-input
+    required: false
+    label:
+      en_US: Claude Code OAuth Token
+      zh_Hans: Claude Code OAuth Token
+    placeholder:
+      en_US: "Enter OAuth token"
+    help:
+      en_US: "Claude Code OAuth token (alternative to API key). Either this or API key is required."
+      zh_Hans: "Claude Code OAuth Token（API Key 的替代方案）。至少需要提供其中之一。"
+tools:
+  - tools/claude_agent.yaml
+extra:
+  python:
+    source: provider/claude_agent_provider.py
