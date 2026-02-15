@@ -1,0 +1,16 @@
+# Drop this file into your Dify docker/ directory alongside docker-compose.yaml.
+# Docker Compose automatically merges it with the main compose file.
+#
+# Usage:
+#   cp docker-compose.override.yaml /path/to/dify/docker/
+#   cp plugin-daemon.Dockerfile /path/to/dify/docker/
+#   cd /path/to/dify/docker
+#   docker compose build plugin_daemon
+#   docker compose up -d plugin_daemon
+
+services:
+  plugin_daemon:
+    build:
+      context: .
+      dockerfile: plugin-daemon.Dockerfile
+    image: dify-plugin-daemon-claude:0.5.3

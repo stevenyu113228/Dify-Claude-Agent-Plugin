@@ -10,77 +10,23 @@ enabling autonomous Claude Agents as tool nodes in Dify workflows.
 
 ## Installation (Docker Deployment)
 
-If your Dify is running via Docker Compose, the plugin daemon container needs Node.js and Claude CLI installed. Follow these steps:
+If your Dify is running via Docker Compose, use the automated setup script:
 
-### Step 1: Create Custom Plugin Daemon Dockerfile
-
-Create `plugin-daemon.Dockerfile` in your Dify `docker/` directory:
-
-```dockerfile
-FROM langgenius/dify-plugin-daemon:0.5.3-local
-
-# Install Node.js 22.x (LTS)
-RUN apt-get update && \
-    apt-get install -y ca-certificates curl gnupg && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main' > /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && \
-    apt-get install -y nodejs && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Claude CLI globally
-RUN npm install -g @anthropic-ai/claude-code
-
-# Verify installations
-RUN node --version && npm --version && claude --version
-```
-
-### Step 2: Modify docker-compose.yaml
-
-Find the `plugin_daemon` service and replace the `image:` line with a `build:` block:
-
-```yaml
-  plugin_daemon:
-    # Replace this:
-    # image: langgenius/dify-plugin-daemon:0.5.3-local
-    # With this:
-    build:
-      context: .
-      dockerfile: plugin-daemon.Dockerfile
-    image: dify-plugin-daemon-claude:0.5.3
-    restart: always
-    environment:
-      # ... (keep all existing environment variables)
-```
-
-### Step 3: Disable Plugin Signature Verification
-
-Custom plugins are not signed by the Dify marketplace. You must disable signature verification.
-
-In your `docker/.env` file, set:
-
-```
-FORCE_VERIFYING_SIGNATURE=false
-```
-
-### Step 4: Build and Restart
+### Quick Setup (Recommended)
 
 ```bash
-cd /path/to/dify/docker
-docker compose build plugin_daemon
-docker compose up -d plugin_daemon
+cd quick-start
+./setup.sh /path/to/dify/docker
 ```
 
-Verify the container has Node.js and Claude CLI:
+This script will:
+1. Patch the plugin daemon with Node.js 22 + Claude CLI + gosu wrapper
+2. Disable plugin signature verification (required for custom plugins)
+3. Build and restart the plugin daemon container
 
-```bash
-docker exec <plugin_daemon_container> node --version   # v22.x
-docker exec <plugin_daemon_container> claude --version  # 2.x
-```
+See [`quick-start/README.md`](quick-start/README.md) for manual setup steps and details.
 
-### Step 5: Install the Plugin
+### Install the Plugin
 
 1. Package the plugin (requires [Dify CLI](https://github.com/langgenius/dify-plugin-daemon/releases)):
    ```bash
