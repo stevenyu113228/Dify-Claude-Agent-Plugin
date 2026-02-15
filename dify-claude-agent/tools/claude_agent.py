@@ -161,6 +161,11 @@ class ClaudeAgentTool(Tool):
             TextBlock,
         )
 
+        # Use claude-wrapper to drop root privileges when running in Docker.
+        # Claude CLI refuses --dangerously-skip-permissions as root.
+        import shutil
+        cli_path = shutil.which("claude-wrapper") or shutil.which("claude")
+
         options = ClaudeAgentOptions(
             model=model,
             system_prompt=system_prompt,
@@ -170,6 +175,7 @@ class ClaudeAgentTool(Tool):
             allowed_tools=allowed_tools,
             agents=agents,
             env=env,
+            cli_path=cli_path,
         )
 
         text_parts: list[str] = []
