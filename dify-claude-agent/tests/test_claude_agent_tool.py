@@ -20,13 +20,27 @@ import pytest
 
 _dify_plugin_mod = types.ModuleType("dify_plugin")
 _dify_plugin_mod.Tool = type("Tool", (), {})  # placeholder base class
+_dify_plugin_mod.ToolProvider = type("ToolProvider", (), {})  # placeholder base class
 _dify_entities_mod = types.ModuleType("dify_plugin.entities")
 _dify_entities_tool_mod = types.ModuleType("dify_plugin.entities.tool")
 _dify_entities_tool_mod.ToolInvokeMessage = type("ToolInvokeMessage", (), {})
+_dify_errors_mod = types.ModuleType("dify_plugin.errors")
+_dify_errors_tool_mod = types.ModuleType("dify_plugin.errors.tool")
+
+
+class _FakeToolProviderCredentialValidationError(Exception):
+    pass
+
+
+_dify_errors_tool_mod.ToolProviderCredentialValidationError = (
+    _FakeToolProviderCredentialValidationError
+)
 
 sys.modules["dify_plugin"] = _dify_plugin_mod
 sys.modules["dify_plugin.entities"] = _dify_entities_mod
 sys.modules["dify_plugin.entities.tool"] = _dify_entities_tool_mod
+sys.modules["dify_plugin.errors"] = _dify_errors_mod
+sys.modules["dify_plugin.errors.tool"] = _dify_errors_tool_mod
 
 _claude_sdk_mod = types.ModuleType("claude_agent_sdk")
 _claude_sdk_mod.query = MagicMock()
@@ -48,8 +62,9 @@ class _FakeAgentDefinition:
 _claude_sdk_mod.AgentDefinition = _FakeAgentDefinition
 sys.modules["claude_agent_sdk"] = _claude_sdk_mod
 
-# Now we can safely import the module under test
+# Now we can safely import the modules under test
 from tools.claude_agent import VALID_TOOLS, ClaudeAgentTool  # noqa: E402
+from provider.claude_agent_provider import ClaudeAgentProviderProvider  # noqa: E402
 
 
 # ===========================================================================
@@ -198,6 +213,44 @@ class TestBuildAuthEnv:
         env = tool._build_auth_env()
         assert env is None
 
+    def test_custom_endpoint_all_fields(self):
+        """Custom endpoint base_url + auth_token are added to env."""
+        tool = self._make_tool({
+            "anthropic_base_url": "https://router.requesty.ai/v1",
+            "anthropic_auth_token": "req-token-xyz",
+        })
+        env = tool._build_auth_env()
+        assert env == {
+            "ANTHROPIC_BASE_URL": "https://router.requesty.ai/v1",
+            "ANTHROPIC_AUTH_TOKEN": "req-token-xyz",
+        }
+
+    def test_custom_endpoint_with_api_key(self):
+        """Custom endpoint fields coexist with API key."""
+        tool = self._make_tool({
+            "anthropic_api_key": "sk-ant-key",
+            "anthropic_base_url": "https://proxy.example.com/v1",
+            "anthropic_auth_token": "proxy-token",
+        })
+        env = tool._build_auth_env()
+        assert env == {
+            "ANTHROPIC_API_KEY": "sk-ant-key",
+            "ANTHROPIC_BASE_URL": "https://proxy.example.com/v1",
+            "ANTHROPIC_AUTH_TOKEN": "proxy-token",
+        }
+
+    def test_custom_endpoint_whitespace_stripped(self):
+        """Whitespace is stripped from custom endpoint fields."""
+        tool = self._make_tool({
+            "anthropic_base_url": "  https://proxy.example.com  ",
+            "anthropic_auth_token": "  tok-123  ",
+        })
+        env = tool._build_auth_env()
+        assert env == {
+            "ANTHROPIC_BASE_URL": "https://proxy.example.com",
+            "ANTHROPIC_AUTH_TOKEN": "tok-123",
+        }
+
 
 # ===========================================================================
 # 4. Subagent config parsing (_parse_subagent_config)
@@ -232,7 +285,7 @@ class TestParseSubagentConfig:
                 "description": "Writes code",
                 "prompt": "You write code.",
                 "tools": ["Read", "Write", "Edit"],
-                "model": "claude-sonnet-4-5-20250929",
+                "model": "claude-sonnet-4-5",
             },
             "reviewer": {
                 "description": "Reviews code",
@@ -243,7 +296,7 @@ class TestParseSubagentConfig:
         agents = tool._parse_subagent_config(config)
         assert len(agents) == 2
         assert agents["coder"].tools == ["Read", "Write", "Edit"]
-        assert agents["coder"].model == "claude-sonnet-4-5-20250929"
+        assert agents["coder"].model == "claude-sonnet-4-5"
         assert agents["reviewer"].tools is None
 
     def test_invalid_json(self):
@@ -300,3 +353,95 @@ class TestParseSubagentConfig:
         tool = self._make_tool()
         with pytest.raises(ValueError, match="must be a JSON object"):
             tool._parse_subagent_config("null")
+
+
+# ===========================================================================
+# 5. Provider credential validation
+# ===========================================================================
+
+class TestProviderValidation:
+    """Test ClaudeAgentProviderProvider._validate_credentials."""
+
+    @staticmethod
+    def _make_provider() -> ClaudeAgentProviderProvider:
+        provider = ClaudeAgentProviderProvider.__new__(ClaudeAgentProviderProvider)
+        return provider
+
+    # --- Valid modes ---
+
+    def test_valid_api_key(self):
+        provider = self._make_provider()
+        provider._validate_credentials({"anthropic_api_key": "sk-ant-test123"})
+
+    def test_valid_oauth(self):
+        provider = self._make_provider()
+        provider._validate_credentials({"claude_code_oauth_token": "oauth-tok-abc"})
+
+    def test_valid_custom_endpoint(self):
+        provider = self._make_provider()
+        provider._validate_credentials({
+            "anthropic_base_url": "https://router.requesty.ai",
+            "anthropic_auth_token": "req-token",
+        })
+
+    def test_valid_api_key_with_custom_endpoint(self):
+        """API key and custom endpoint can coexist."""
+        provider = self._make_provider()
+        provider._validate_credentials({
+            "anthropic_api_key": "sk-ant-test123",
+            "anthropic_base_url": "https://proxy.example.com",
+            "anthropic_auth_token": "proxy-token",
+        })
+
+    # --- Invalid modes ---
+
+    def test_no_credentials(self):
+        provider = self._make_provider()
+        with pytest.raises(_FakeToolProviderCredentialValidationError, match="At least one credential"):
+            provider._validate_credentials({})
+
+    def test_bad_api_key_format(self):
+        provider = self._make_provider()
+        with pytest.raises(_FakeToolProviderCredentialValidationError, match="Invalid Anthropic API Key format"):
+            provider._validate_credentials({"anthropic_api_key": "bad-key-123"})
+
+    def test_base_url_without_auth_token(self):
+        provider = self._make_provider()
+        with pytest.raises(_FakeToolProviderCredentialValidationError, match="Missing.*Auth Token"):
+            provider._validate_credentials({
+                "anthropic_base_url": "https://proxy.example.com",
+            })
+
+    def test_auth_token_without_base_url(self):
+        provider = self._make_provider()
+        with pytest.raises(_FakeToolProviderCredentialValidationError, match="Missing.*Base URL"):
+            provider._validate_credentials({
+                "anthropic_auth_token": "tok-123",
+            })
+
+    def test_invalid_url_format(self):
+        provider = self._make_provider()
+        with pytest.raises(_FakeToolProviderCredentialValidationError, match="must start with"):
+            provider._validate_credentials({
+                "anthropic_base_url": "ftp://proxy.example.com",
+                "anthropic_auth_token": "tok-123",
+            })
+
+    def test_empty_strings_treated_as_absent(self):
+        """All-empty credentials should fail as no mode satisfied."""
+        provider = self._make_provider()
+        with pytest.raises(_FakeToolProviderCredentialValidationError, match="At least one credential"):
+            provider._validate_credentials({
+                "anthropic_api_key": "",
+                "claude_code_oauth_token": "  ",
+                "anthropic_base_url": "",
+                "anthropic_auth_token": "",
+            })
+
+    def test_http_url_accepted(self):
+        """http:// URLs are valid (for local development proxies)."""
+        provider = self._make_provider()
+        provider._validate_credentials({
+            "anthropic_base_url": "http://localhost:8080",
+            "anthropic_auth_token": "dev-token",
+        })

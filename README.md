@@ -8,7 +8,7 @@ enabling autonomous Claude Agents as tool nodes in Dify workflows.
 ## Prerequisites
 
 - Dify 1.9+ with Plugin support enabled
-- Anthropic API Key or Claude Code OAuth Token
+- Anthropic API Key, Claude Code OAuth Token, or Custom Endpoint credentials
 
 ## Installation (Docker Deployment)
 
@@ -41,9 +41,23 @@ See [`quick-start/README.md`](quick-start/README.md) for manual setup steps and 
    ```
 2. Open Dify UI → **Plugins** → **Install Plugin** → **Local Upload**
 3. Upload `dify-claude-agent.difypkg`
-4. Configure credentials:
-   - **Anthropic API Key** (`sk-ant-...`) or
+4. Configure credentials (one of):
+   - **Anthropic API Key** (`sk-ant-...`)
    - **Claude Code OAuth Token**
+   - **Custom Endpoint** (Base URL + Auth Token) — see below
+
+### Custom Endpoint (Proxy) Configuration
+
+To route requests through a proxy service (Requesty, OpenRouter, etc.), set these provider credentials:
+
+| Credential | Type | Required | Example |
+|------------|------|----------|---------|
+| Custom API Base URL | text | Yes | `https://router.requesty.ai` |
+| Custom Endpoint Auth Token | secret | Yes | Your proxy API key |
+
+Both fields must be provided together. Do **not** include `/v1` in the Base URL — it is added automatically.
+
+When using a custom endpoint, you must manually enter the model name (e.g., `claude-4.6-sonnet`) in the tool node's **Model** parameter. The preset model values are not compatible with proxy services.
 
 ## Usage
 
@@ -83,7 +97,7 @@ Enable in-node delegation by providing a JSON config:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | prompt | string | (required) | Task for the agent |
-| model | select | claude-sonnet-4-5 | Claude model to use |
+| model | string | claude-sonnet-4-5 | Claude model to use |
 | system_prompt | string | - | Custom system prompt |
 | permission_mode | select | bypassPermissions | Agent permission level |
 | max_turns | number | 10 | Max agent turns |

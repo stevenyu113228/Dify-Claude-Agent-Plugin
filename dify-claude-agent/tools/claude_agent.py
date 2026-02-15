@@ -30,7 +30,7 @@ class ClaudeAgentTool(Tool):
             yield self.create_json_message({"is_error": True, "error": "prompt is required"})
             return
 
-        model = tool_parameters.get("model", "claude-sonnet-4-5-20250929")
+        model = tool_parameters.get("model", "claude-sonnet-4-5")
         system_prompt = tool_parameters.get("system_prompt", "").strip() or None
         permission_mode = tool_parameters.get("permission_mode", "bypassPermissions")
         max_turns = int(tool_parameters.get("max_turns", 10))
@@ -74,12 +74,16 @@ class ClaudeAgentTool(Tool):
                 })
                 return
 
-        # Build credentials env
+        # Build credentials env + CLI behaviour flags
         env = self._build_auth_env()
+        if env is not None:
+            env["DISABLE_NON_ESSENTIAL_MODEL_CALLS"] = "1"
+            env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"] = "1"
         if env is None:
             yield self.create_text_message(
                 "Error: no valid credentials. "
-                "Provide Anthropic API Key or Claude Code OAuth Token."
+                "Provide Anthropic API Key, Claude Code OAuth Token, "
+                "or Custom Endpoint credentials."
             )
             yield self.create_json_message({
                 "is_error": True,
@@ -218,11 +222,21 @@ class ClaudeAgentTool(Tool):
         oauth_token = self.runtime.credentials.get(
             "claude_code_oauth_token", ""
         ).strip()
+        base_url = self.runtime.credentials.get(
+            "anthropic_base_url", ""
+        ).strip()
+        auth_token = self.runtime.credentials.get(
+            "anthropic_auth_token", ""
+        ).strip()
 
         if api_key:
             env["ANTHROPIC_API_KEY"] = api_key
         if oauth_token:
             env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+        if base_url:
+            env["ANTHROPIC_BASE_URL"] = base_url
+        if auth_token:
+            env["ANTHROPIC_AUTH_TOKEN"] = auth_token
 
         return env if env else None
 

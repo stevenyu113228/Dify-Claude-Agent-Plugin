@@ -20,8 +20,8 @@ credentials_for_provider:
     placeholder:
       en_US: "sk-ant-..."
     help:
-      en_US: "Your Anthropic API key. Get one at https://console.anthropic.com/. Either this or OAuth token is required."
-      zh_Hans: "您的 Anthropic API Key。至少需要提供 API Key 或 OAuth Token 其中之一。"
+      en_US: "Your Anthropic API key. Get one at https://console.anthropic.com/. Only one auth method is needed: API Key, OAuth Token, or Custom Endpoint (Base URL + Auth Token)."
+      zh_Hans: "您的 Anthropic API Key。只需填寫一種認證方式：API Key、OAuth Token 或自定義端點（Base URL + Auth Token）。"
     url: https://console.anthropic.com/
   claude_code_oauth_token:
     type: secret-input
@@ -32,8 +32,30 @@ credentials_for_provider:
     placeholder:
       en_US: "Enter OAuth token"
     help:
-      en_US: "Claude Code OAuth token (alternative to API key). Either this or API key is required."
-      zh_Hans: "Claude Code OAuth Token（API Key 的替代方案）。至少需要提供其中之一。"
+      en_US: "Claude Code OAuth token. Only one auth method is needed: API Key, OAuth Token, or Custom Endpoint (Base URL + Auth Token)."
+      zh_Hans: "Claude Code OAuth Token。只需填寫一種認證方式：API Key、OAuth Token 或自定義端點（Base URL + Auth Token）。"
+  anthropic_base_url:
+    type: text-input
+    required: false
+    label:
+      en_US: Custom API Base URL
+      zh_Hans: 自定義 API Base URL
+    placeholder:
+      en_US: "https://router.requesty.ai"
+    help:
+      en_US: "Custom API endpoint URL (e.g., Requesty, OpenRouter). Do NOT include /v1 suffix — it is added automatically. Must be used with Auth Token. Only one auth method is needed."
+      zh_Hans: "自定義 API 端點 URL（如 Requesty、OpenRouter）。請勿包含 /v1 後綴，系統會自動加上。需與 Auth Token 一起使用。只需填寫一種認證方式。"
+  anthropic_auth_token:
+    type: secret-input
+    required: false
+    label:
+      en_US: Custom Endpoint Auth Token
+      zh_Hans: 自定義端點 Auth Token
+    placeholder:
+      en_US: "Enter auth token"
+    help:
+      en_US: "Authentication token for the custom API endpoint. Must be used with Base URL."
+      zh_Hans: "自定義 API 端點的認證 Token。需與 Base URL 一起使用。"
 tools:
   - tools/claude_agent.yaml
 extra:

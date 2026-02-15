@@ -36,27 +36,27 @@ parameters:
     form: llm
 
   - name: model
-    type: select
+    type: string
     required: false
     label:
       en_US: Model
       zh_Hans: 模型
     human_description:
-      en_US: Claude model to use for the agent
-      zh_Hans: Agent 使用的 Claude 模型
-    llm_description: The Claude model to use
+      en_US: >
+        Claude model to use. Common values: claude-sonnet-4-5,
+        claude-opus-4-6, claude-haiku-4-5.
+        When using Custom Endpoint, you must manually enter the model name
+        (e.g., claude-4.6-sonnet). Do NOT use the preset values above.
+      zh_Hans: >
+        使用的 Claude 模型。常用值：claude-sonnet-4-5、
+        claude-opus-4-6、claude-haiku-4-5。
+        使用自定義端點時，必須手動輸入模型名稱
+        （如 claude-4.6-sonnet），不可使用上述預設值。
+    llm_description: >
+      The Claude model to use. For custom endpoints, enter the model name
+      required by the proxy service.
     form: form
-    default: "claude-sonnet-4-5-20250929"
-    options:
-      - value: "claude-opus-4-6"
-        label:
-          en_US: Claude Opus 4.6
-      - value: "claude-sonnet-4-5-20250929"
-        label:
-          en_US: Claude Sonnet 4.5
-      - value: "claude-haiku-4-5-20251001"
-        label:
-          en_US: Claude Haiku 4.5
+    default: "claude-sonnet-4-5"
 
   - name: system_prompt
     type: string
