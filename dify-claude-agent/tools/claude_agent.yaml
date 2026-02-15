@@ -1,0 +1,165 @@
+identity:
+  name: claude_agent
+  author: steven
+  label:
+    en_US: Claude Agent
+    zh_Hans: Claude Agent
+
+description:
+  human:
+    en_US: >
+      Run an autonomous Claude Agent that can read files, execute commands,
+      search the web, and complete complex tasks. Configure allowed tools,
+      model, and budget to control agent behavior.
+    zh_Hans: >
+      運行一個自主 Claude Agent，可以讀取文件、執行命令、搜索網頁並完成複雜任務。
+      配置允許的工具、模型和預算來控制 Agent 行為。
+  llm: >
+    Run an autonomous Claude Agent with configurable tools and capabilities.
+    The agent can read files, execute bash commands, search the web, and more.
+    Use this when you need an AI agent to perform complex multi-step tasks autonomously.
+    The agent returns its result as text and structured JSON.
+
+parameters:
+  - name: prompt
+    type: string
+    required: true
+    label:
+      en_US: Prompt
+      zh_Hans: 提示詞
+    human_description:
+      en_US: The task or instruction to send to the Claude Agent
+      zh_Hans: 發送給 Claude Agent 的任務或指令
+    llm_description: >
+      The task prompt or instruction that the Claude Agent will execute autonomously.
+      Be specific about what you want the agent to accomplish.
+    form: llm
+
+  - name: model
+    type: select
+    required: false
+    label:
+      en_US: Model
+      zh_Hans: 模型
+    human_description:
+      en_US: Claude model to use for the agent
+      zh_Hans: Agent 使用的 Claude 模型
+    llm_description: The Claude model to use
+    form: form
+    default: "claude-sonnet-4-5-20250929"
+    options:
+      - value: "claude-opus-4-6"
+        label:
+          en_US: Claude Opus 4.6
+      - value: "claude-sonnet-4-5-20250929"
+        label:
+          en_US: Claude Sonnet 4.5
+      - value: "claude-haiku-4-5-20251001"
+        label:
+          en_US: Claude Haiku 4.5
+
+  - name: system_prompt
+    type: string
+    required: false
+    label:
+      en_US: System Prompt
+      zh_Hans: 系統提示詞
+    human_description:
+      en_US: Custom system prompt for the agent (optional)
+      zh_Hans: Agent 的自定義系統提示詞（可選）
+    llm_description: Custom system prompt to set the agent's behavior and context
+    form: form
+
+  - name: permission_mode
+    type: select
+    required: false
+    label:
+      en_US: Permission Mode
+      zh_Hans: 權限模式
+    human_description:
+      en_US: Controls what the agent can do without asking permission
+      zh_Hans: 控制 Agent 無需請求權限即可執行的操作
+    llm_description: Permission mode for the agent's tool usage
+    form: form
+    default: "bypassPermissions"
+    options:
+      - value: "bypassPermissions"
+        label:
+          en_US: Bypass Permissions (Full Auto)
+      - value: "acceptEdits"
+        label:
+          en_US: Accept Edits Only
+      - value: "plan"
+        label:
+          en_US: Plan Mode (Read Only)
+
+  - name: max_turns
+    type: number
+    required: false
+    label:
+      en_US: Max Turns
+      zh_Hans: 最大輪次
+    human_description:
+      en_US: Maximum number of agent turns (default 10)
+      zh_Hans: Agent 最大輪次數（預設 10）
+    llm_description: Maximum number of agentic turns before stopping
+    form: form
+    default: 10
+    min: 1
+    max: 100
+
+  - name: max_budget_usd
+    type: number
+    required: false
+    label:
+      en_US: Max Budget (USD)
+      zh_Hans: 最大預算（美元）
+    human_description:
+      en_US: Maximum spending limit in USD (default 1.0)
+      zh_Hans: 最大花費限制，單位美元（預設 1.0）
+    llm_description: Maximum budget in USD for the agent execution
+    form: form
+    default: 1
+
+  - name: allowed_tools
+    type: string
+    required: false
+    label:
+      en_US: Allowed Tools
+      zh_Hans: 允許的工具
+    human_description:
+      en_US: >
+        Comma-separated list of tools the agent can use.
+        Available: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, Task.
+        Default: Read,Glob,Grep,WebSearch,WebFetch
+      zh_Hans: >
+        Agent 可使用的工具列表（逗號分隔）。
+        可用工具：Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, Task。
+        預設：Read,Glob,Grep,WebSearch,WebFetch
+    llm_description: >
+      Comma-separated list of allowed tools. Available tools:
+      Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, Task.
+    form: form
+    default: "Read,Glob,Grep,WebSearch,WebFetch"
+
+  - name: subagent_config
+    type: string
+    required: false
+    label:
+      en_US: Subagent Config (JSON)
+      zh_Hans: 子代理配置（JSON）
+    human_description:
+      en_US: >
+        Optional JSON config for subagents. Example:
+        {"researcher": {"description": "...", "prompt": "...", "tools": ["Read","WebSearch"], "model": "haiku"}}
+      zh_Hans: >
+        可選的子代理 JSON 配置。範例：
+        {"researcher": {"description": "...", "prompt": "...", "tools": ["Read","WebSearch"], "model": "haiku"}}
+    llm_description: >
+      Optional JSON configuration for subagents that the main agent can delegate to.
+      Each key is the agent name, value has description, prompt, tools, and optional model.
+    form: form
+
+extra:
+  python:
+    source: tools/claude_agent.py
