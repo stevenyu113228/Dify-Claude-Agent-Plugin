@@ -3,6 +3,8 @@
 A Dify plugin that integrates [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview),
 enabling autonomous Claude Agents as tool nodes in Dify workflows.
 
+![Demo](img/demo.png)
+
 ## Prerequisites
 
 - Dify 1.9+ with Plugin support enabled

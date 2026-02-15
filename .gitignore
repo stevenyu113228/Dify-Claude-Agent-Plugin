@@ -1,0 +1,19 @@
+# Build artifacts
+*.difypkg
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Environment
+.env
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
