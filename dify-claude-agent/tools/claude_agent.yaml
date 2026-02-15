@@ -120,6 +120,7 @@ parameters:
     llm_description: Maximum budget in USD for the agent execution
     form: form
     default: 1
+    min: 0.01
 
   - name: allowed_tools
     type: string

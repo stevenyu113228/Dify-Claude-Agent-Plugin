@@ -92,9 +92,9 @@ class ClaudeAgentTool(Tool):
         error_holder: list[Exception] = []
 
         def run_in_thread():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
                 loop.run_until_complete(
                     self._stream_agent(
                         prompt=prompt,
@@ -112,13 +112,19 @@ class ClaudeAgentTool(Tool):
             except Exception as e:
                 error_holder.append(e)
             finally:
+                loop.close()
                 msg_queue.put(None)  # sentinel
 
         thread = threading.Thread(target=run_in_thread, daemon=True)
         thread.start()
 
         while True:
-            msg = msg_queue.get()
+            try:
+                msg = msg_queue.get(timeout=5.0)
+            except queue.Empty:
+                if not thread.is_alive():
+                    break
+                continue
             if msg is None:
                 break
             yield msg
@@ -127,7 +133,7 @@ class ClaudeAgentTool(Tool):
 
         if error_holder:
             err = error_holder[0]
-            logger.exception("Claude Agent execution failed")
+            logger.error("Claude Agent execution failed", exc_info=err)
             yield self.create_text_message(f"Error: Claude Agent failed: {err}")
             yield self.create_json_message({
                 "is_error": True,
@@ -192,9 +198,12 @@ class ClaudeAgentTool(Tool):
                 result_data["session_id"] = message.session_id
                 result_data["num_turns"] = message.num_turns
                 if message.result:
-                    text_parts.append(message.result)
+                    result_data["result"] = message.result
 
-        result_data["result"] = "\n".join(text_parts) if text_parts else ""
+        # Use ResultMessage.result if available, otherwise fall back to
+        # collected text parts (avoids duplicate content)
+        if not result_data["result"]:
+            result_data["result"] = "\n".join(text_parts) if text_parts else ""
         msg_queue.put(self.create_json_message(result_data))
 
     def _build_auth_env(self) -> dict[str, str] | None:
