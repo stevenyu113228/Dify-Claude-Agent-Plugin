@@ -17,7 +17,7 @@ RUN npm install -g @anthropic-ai/claude-code
 # Create non-root user for running Claude CLI
 # (Claude CLI refuses --dangerously-skip-permissions when running as root)
 RUN useradd -m -s /bin/bash claude-runner && \
-    mkdir -p /home/claude-runner/.claude && \
+    mkdir -p /home/claude-runner/.claude/skills && \
     chown -R claude-runner:claude-runner /home/claude-runner
 
 # Create wrapper script that drops to non-root user via gosu

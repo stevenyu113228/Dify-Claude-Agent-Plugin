@@ -14,3 +14,5 @@ services:
       context: .
       dockerfile: plugin-daemon.Dockerfile
     image: dify-plugin-daemon-claude:0.5.3
+    volumes:
+      - ./claude-skills:/home/claude-runner/.claude/skills

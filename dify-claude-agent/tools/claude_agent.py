@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 VALID_TOOLS = {
     "Read", "Write", "Edit", "Bash", "Glob", "Grep",
     "WebSearch", "WebFetch", "Task", "NotebookEdit",
-    "AskUserQuestion", "TodoWrite",
+    "AskUserQuestion", "TodoWrite", "Skill",
 }
 
 
@@ -35,26 +35,26 @@ class ClaudeAgentTool(Tool):
         permission_mode = tool_parameters.get("permission_mode", "bypassPermissions")
         max_turns = int(tool_parameters.get("max_turns", 10))
         max_budget_usd = float(tool_parameters.get("max_budget_usd", 1.0))
-        allowed_tools_str = tool_parameters.get(
-            "allowed_tools", "Read,Glob,Grep,WebSearch,WebFetch"
-        )
+        allowed_tools_str = tool_parameters.get("allowed_tools", "").strip()
         subagent_config_str = tool_parameters.get("subagent_config", "").strip()
 
-        # Parse allowed tools
-        allowed_tools = [
-            t.strip() for t in allowed_tools_str.split(",") if t.strip()
-        ]
-        invalid_tools = [t for t in allowed_tools if t not in VALID_TOOLS]
-        if invalid_tools:
-            yield self.create_text_message(
-                f"Error: invalid tools: {invalid_tools}. "
-                f"Valid tools: {sorted(VALID_TOOLS)}"
-            )
-            yield self.create_json_message({
-                "is_error": True,
-                "error": f"Invalid tools: {invalid_tools}",
-            })
-            return
+        # Parse allowed tools (empty = no restriction, SDK uses all tools)
+        allowed_tools = None
+        if allowed_tools_str:
+            allowed_tools = [
+                t.strip() for t in allowed_tools_str.split(",") if t.strip()
+            ]
+            invalid_tools = [t for t in allowed_tools if t not in VALID_TOOLS and not t.startswith("mcp__")]
+            if invalid_tools:
+                yield self.create_text_message(
+                    f"Error: invalid tools: {invalid_tools}. "
+                    f"Valid tools: {sorted(VALID_TOOLS)}"
+                )
+                yield self.create_json_message({
+                    "is_error": True,
+                    "error": f"Invalid tools: {invalid_tools}",
+                })
+                return
 
         # Parse subagent config
         agents = None
@@ -62,7 +62,7 @@ class ClaudeAgentTool(Tool):
             try:
                 agents = self._parse_subagent_config(subagent_config_str)
                 # Ensure Task is in allowed_tools when subagents are defined
-                if "Task" not in allowed_tools:
+                if allowed_tools is not None and "Task" not in allowed_tools:
                     allowed_tools.append("Task")
             except (json.JSONDecodeError, ValueError) as e:
                 yield self.create_text_message(
@@ -71,6 +71,22 @@ class ClaudeAgentTool(Tool):
                 yield self.create_json_message({
                     "is_error": True,
                     "error": f"Invalid subagent_config: {e}",
+                })
+                return
+
+        # Parse MCP servers config
+        mcp_servers_str = tool_parameters.get("mcp_servers", "").strip()
+        mcp_servers = {}
+        if mcp_servers_str:
+            try:
+                mcp_servers = self._parse_mcp_servers(mcp_servers_str)
+            except (json.JSONDecodeError, ValueError) as e:
+                yield self.create_text_message(
+                    f"Error: invalid mcp_servers JSON: {e}"
+                )
+                yield self.create_json_message({
+                    "is_error": True,
+                    "error": f"Invalid mcp_servers: {e}",
                 })
                 return
 
@@ -109,6 +125,7 @@ class ClaudeAgentTool(Tool):
                         max_budget_usd=max_budget_usd,
                         allowed_tools=allowed_tools,
                         agents=agents,
+                        mcp_servers=mcp_servers,
                         env=env,
                         msg_queue=msg_queue,
                     )
@@ -154,6 +171,7 @@ class ClaudeAgentTool(Tool):
         max_budget_usd: float,
         allowed_tools: list[str],
         agents: dict | None,
+        mcp_servers: dict,
         env: dict[str, str],
         msg_queue: "queue.Queue[ToolInvokeMessage | None]",
     ) -> None:
@@ -178,6 +196,8 @@ class ClaudeAgentTool(Tool):
             max_budget_usd=max_budget_usd,
             allowed_tools=allowed_tools,
             agents=agents,
+            mcp_servers=mcp_servers or None,
+            setting_sources=["user", "project"],
             env=env,
             cli_path=cli_path,
         )
@@ -239,6 +259,15 @@ class ClaudeAgentTool(Tool):
             env["ANTHROPIC_AUTH_TOKEN"] = auth_token
 
         return env if env else None
+
+    def _parse_mcp_servers(self, config_str: str) -> dict:
+        raw = json.loads(config_str)
+        if not isinstance(raw, dict):
+            raise ValueError("mcp_servers must be a JSON object")
+        for name, cfg in raw.items():
+            if not isinstance(cfg, dict):
+                raise ValueError(f"MCP server '{name}' config must be an object")
+        return raw
 
     def _parse_subagent_config(self, config_str: str) -> dict:
         from claude_agent_sdk import AgentDefinition

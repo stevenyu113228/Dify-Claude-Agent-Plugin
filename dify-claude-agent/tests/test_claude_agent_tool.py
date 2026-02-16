@@ -77,7 +77,7 @@ class TestValidTools:
     EXPECTED_VALID = [
         "Read", "Write", "Edit", "Bash", "Glob", "Grep",
         "WebSearch", "WebFetch", "Task", "NotebookEdit",
-        "AskUserQuestion", "TodoWrite",
+        "AskUserQuestion", "TodoWrite", "Skill",
     ]
 
     @pytest.mark.parametrize("tool_name", EXPECTED_VALID)
@@ -97,7 +97,7 @@ class TestValidTools:
 
     def test_expected_count(self):
         """Ensure the set contains exactly the expected number of tools."""
-        assert len(VALID_TOOLS) == 12
+        assert len(VALID_TOOLS) == 13
 
 
 # ===========================================================================
@@ -152,6 +152,40 @@ class TestAllowedToolsParsing:
         parsed = self._parse("Read,FakeTool,Write")
         invalid = [t for t in parsed if t not in VALID_TOOLS]
         assert invalid == ["FakeTool"]
+
+
+# ===========================================================================
+# 2b. MCP tool name bypass in allowed_tools validation
+# ===========================================================================
+
+class TestMcpToolNameBypass:
+    """Tools prefixed with mcp__ should bypass VALID_TOOLS validation."""
+
+    @staticmethod
+    def _validate(tools: list[str]) -> list[str]:
+        """Reproduce the validation logic from _invoke."""
+        return [t for t in tools if t not in VALID_TOOLS and not t.startswith("mcp__")]
+
+    @pytest.mark.parametrize("tool_name", [
+        "mcp__context7__resolve-library-id",
+        "mcp__context7__query-docs",
+        "mcp__custom__my_tool",
+        "mcp__",
+    ])
+    def test_mcp_prefixed_tools_accepted(self, tool_name):
+        assert self._validate([tool_name]) == []
+
+    def test_mcp_mixed_with_valid_tools(self):
+        tools = ["Read", "mcp__context7__query-docs", "Write"]
+        assert self._validate(tools) == []
+
+    def test_non_mcp_invalid_still_rejected(self):
+        tools = ["Read", "mcp__context7__query-docs", "FakeTool"]
+        assert self._validate(tools) == ["FakeTool"]
+
+    def test_mcp_without_double_underscore_rejected(self):
+        """'mcp_foo' (single underscore) is not a valid MCP prefix."""
+        assert self._validate(["mcp_foo"]) == ["mcp_foo"]
 
 
 # ===========================================================================
@@ -353,6 +387,70 @@ class TestParseSubagentConfig:
         tool = self._make_tool()
         with pytest.raises(ValueError, match="must be a JSON object"):
             tool._parse_subagent_config("null")
+
+
+# ===========================================================================
+# 4b. MCP servers config parsing (_parse_mcp_servers)
+# ===========================================================================
+
+class TestParseMcpServers:
+    """Test _parse_mcp_servers with various inputs."""
+
+    @staticmethod
+    def _make_tool() -> ClaudeAgentTool:
+        tool = ClaudeAgentTool.__new__(ClaudeAgentTool)
+        return tool
+
+    def test_valid_single_server(self):
+        config = json.dumps({
+            "context7": {
+                "type": "url",
+                "url": "https://mcp.context7.com/mcp",
+            }
+        })
+        tool = self._make_tool()
+        result = tool._parse_mcp_servers(config)
+        assert "context7" in result
+        assert result["context7"]["type"] == "url"
+        assert result["context7"]["url"] == "https://mcp.context7.com/mcp"
+
+    def test_valid_multiple_servers(self):
+        config = json.dumps({
+            "context7": {
+                "type": "url",
+                "url": "https://mcp.context7.com/mcp",
+            },
+            "custom": {
+                "type": "stdio",
+                "command": "node",
+                "args": ["server.js"],
+            },
+        })
+        tool = self._make_tool()
+        result = tool._parse_mcp_servers(config)
+        assert len(result) == 2
+        assert result["context7"]["type"] == "url"
+        assert result["custom"]["command"] == "node"
+
+    def test_invalid_json(self):
+        tool = self._make_tool()
+        with pytest.raises(json.JSONDecodeError):
+            tool._parse_mcp_servers("{not valid json}")
+
+    def test_non_object_top_level(self):
+        tool = self._make_tool()
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            tool._parse_mcp_servers('[{"type": "url"}]')
+
+    def test_non_object_server_config(self):
+        tool = self._make_tool()
+        with pytest.raises(ValueError, match="config must be an object"):
+            tool._parse_mcp_servers('{"server1": "not-an-object"}')
+
+    def test_empty_object(self):
+        tool = self._make_tool()
+        result = tool._parse_mcp_servers("{}")
+        assert result == {}
 
 
 # ===========================================================================
